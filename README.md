@@ -82,35 +82,29 @@ mix-id my-mix.mp3 --start 3600
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--step` | auto | Seconds between scan points (30s for mixes ≤1hr, 60s for longer) |
+| `--step` | `30` | Seconds between scan points |
 | `--segment` | `18` | Sample length for recognition |
 | `--start` | `0` | Skip to this position (seconds) |
 | `--help` | | Show help |
 
-### Smart step scaling
-
-mix-id automatically adjusts scan resolution based on mix length:
-
-- **≤1 hour** → 30s steps (~120 requests, more precise timestamps)
-- **>1 hour** → 60s steps (~60-150 requests, avoids rate limits)
-
-Override with `--step` if you want full control.
+The default scan uses 30-second intervals. Override with `--step` to change the scan density. Each normalized artist/title appears once in the output. A track is confirmed when at least one pair of matching samples is adjacent; all matches are retained as evidence, including separate runs. IDs without an adjacent pair remain candidates for review.
 
 ## Output
 
 mix-id generates three files:
 
-- **`_tracklist.txt`** — Paste-friendly format for Mixcloud, etc.
+- **`_tracklist.txt`** — Paste-friendly confirmed list, followed by unconfirmed candidates for review.
 - **`.cue`** — CUE sheet with track markers and timestamps
-- **`_tracklist.json`** — Structured data with full metadata
+- **`_tracklist.json`** — A JSON array containing only consolidated confirmed tracks, with per-run sample evidence
 
 ## How it works
 
 1. Downloads audio from URL (if given) using yt-dlp
-2. Splits the audio into overlapping segments
+2. Samples the audio at regular intervals
 3. Fingerprints each segment via Shazam's recognition API
-4. Deduplicates consecutive matches (handles DJ transitions)
-5. Outputs clean tracklist in multiple formats
+4. Groups adjacent matching IDs into runs; another ID, a no-match, or a scan error ends a run
+5. Merges repeated IDs into one entry, placing IDs with an adjacent matching pair in the main list and the rest under “Possible Tracks”
+6. Outputs the confirmed list, candidates, and sample positions in multiple formats
 
 ## Supported sources
 
@@ -127,10 +121,10 @@ Plus any local audio file (mp3, wav, flac, m4a, etc.)
 ## Tips
 
 - **No API key needed.** mix-id uses Shazam's public recognition endpoint.
-- **Transitions fuzzy?** Shazam sometimes bounces between two tracks during a mix. mix-id deduplicates these automatically.
+- **Transitions fuzzy?** Shazam can bounce between tracks during a mix. Repeated nearby matches appear in the main list; one-hit matches remain under “Possible Tracks” for review.
 - **Rate limited?** mix-id retries automatically with exponential backoff (10s → 20s → 40s). If you're scanning back-to-back, switch VPN/network for a fresh IP.
 - **Resume a scan:** If a scan was interrupted, use `--start` to pick up where you left off (in seconds).
-- **Want more precision?** Use `--step 30` on longer mixes, but be aware of potential rate limiting.
+- **Want more coverage?** Use a smaller `--step` to sample the mix more often.
 
 ## License
 

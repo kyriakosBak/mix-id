@@ -16,8 +16,9 @@
 import { existsSync } from 'fs';
 import { basename } from 'path';
 import { scan } from './lib/scanner.mjs';
-import { dedupe, formatTime, writeTXT, writeCUE, writeJSON } from './lib/format.mjs';
-import { downloadURL, fileSize, hasCommand, getDuration } from './lib/audio.mjs';
+import { reconcile } from './lib/reconcile.mjs';
+import { writeTXT, writeCUE, writeJSON } from './lib/format.mjs';
+import { downloadURL, fileSize, hasCommand } from './lib/audio.mjs';
 
 // --- Parse args ---
 
@@ -48,7 +49,7 @@ if (!input || flags.help) {
     mix-id <file-or-url> [options]
 
   Options:
-    --step <sec>      Time between scan points (auto: 30s ≤1hr, 60s >1hr)
+    --step <sec>      Time between scan points (default: 30s)
     --segment <sec>   Sample length for recognition (default: 18)
     --start <sec>     Skip to position before scanning (default: 0)
     --help            Show this help
@@ -117,19 +118,19 @@ if (!existsSync(file)) {
   process.exit(1);
 }
 
-// --- Auto-detect step if not specified ---
+// --- Default scan step ---
 
-const actualStep = step ?? (getDuration(file) > 3600 ? 60 : 30);
+const actualStep = step ?? 30;
 
 // --- Scan ---
 
 const result = await scan(file, { step: actualStep, segment, start });
 
-// --- Dedupe & output ---
+// --- Reconcile & output ---
 
-const tracks = dedupe(result.tracks);
+const { tracks, candidates } = reconcile(result.observations);
 
-if (tracks.length === 0) {
+if (tracks.length === 0 && candidates.length === 0) {
   console.log('\n❌ No tracks identified.');
   process.exit(0);
 }
@@ -143,21 +144,22 @@ tracks.forEach((t, i) => {
   const album = t.album ? ` [${t.album}]` : '';
   console.log(`${num}. [${t.timestamp}] ${t.artist} — ${t.title}${album}`);
 });
-const removed = result.tracks.length - tracks.length;
-if (removed > 0) console.log(`\n🔄 ${removed} duplicate(s) removed`);
+if (candidates.length) {
+  console.log('\nPOSSIBLE TRACKS — no adjacent matching pair');
+  candidates.forEach((t, i) => {
+    const num = String(i + 1).padStart(2);
+    console.log(`${num}. [${t.timestamp}] ${t.artist} — ${t.title}`);
+  });
+}
 console.log('─'.repeat(50));
 
 // Write files
 const base = file.replace(/\.[^.]+$/, '');
 const audioFilename = basename(file);
 
-writeTXT(tracks, base + '_tracklist.txt');
+writeTXT(tracks, base + '_tracklist.txt', candidates);
 writeCUE(tracks, base + '.cue', audioFilename);
-writeJSON(tracks, base + '_tracklist.json', {
-  source: audioFilename,
-  duration: result.duration,
-  segments_scanned: result.segmentsScanned,
-});
+writeJSON(tracks, base + '_tracklist.json');
 
 console.log(`\n💾 Output:`);
 console.log(`   ${base}_tracklist.txt`);

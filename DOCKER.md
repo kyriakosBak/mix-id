@@ -11,18 +11,18 @@ Add these repository Actions secrets:
 
 ## Release
 
-Keep the Git tag aligned with the `version` in `package.json`. For version `1.0.6`, create and push tag `v1.0.6`:
+Keep the Git tag aligned with the `version` in `package.json`. For version `1.1.0`, create and push tag `v1.1.0`:
 
 ```sh
-git tag v1.0.6
-git push origin v1.0.6
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
-The tag workflow builds and pushes `rebelor/mix-id:1.0.6` for `linux/amd64` and `linux/arm64`.
+The tag workflow builds and pushes `rebelor/mix-id:1.1.0` for `linux/amd64` and `linux/arm64`.
 
 ## Local build
 
 ```sh
-docker build -t rebelor/mix-id:1.0.6 .
-docker run --rm rebelor/mix-id:1.0.6 --help
+docker build -t rebelor/mix-id:1.1.0 .
+docker run --rm rebelor/mix-id:1.1.0 --help
 ```
